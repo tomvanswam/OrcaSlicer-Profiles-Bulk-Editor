@@ -1,0 +1,1 @@
+{"type":"filament","name":"Acme PLA","inherits":"fdm_filament_common","from":"system","instantiation":"true","nozzle_temperature":["210"],"compatible_printers":["Acme X1 0.4 nozzle"]}
