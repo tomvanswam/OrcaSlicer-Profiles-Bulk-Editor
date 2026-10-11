@@ -8,8 +8,9 @@
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --panel-2: #f1f3f6; --border: #e3e6eb;
   --text: #1b1f24; --muted: #667080; --accent: #0f766e; --accent-soft: #e6f4f2;
-  --own: #c2410c; --own-soft: #fff1e8; --parent: #6d28d9; --parent-soft: #f3edff;
-  --system: #2563eb; --system-soft: #eaf1ff; --warn: #b45309; --warn-soft: #fff7e6;
+  /* Okabe-Ito colours (safe for colour vision deficiency), darkened for text contrast */
+  --own: #a35a00; --own-soft: #fdf0dc; --parent: #a3407c; --parent-soft: #f8e9f2;
+  --system: #005f96; --system-soft: #e1eff8; --warn: #b45309; --warn-soft: #fff7e6;
   --shadow: 0 1px 2px rgb(16 24 40 / .05), 0 1px 3px rgb(16 24 40 / .06);
   --radius: 10px;
   --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
@@ -18,8 +19,8 @@
   :root {
     --bg: #0f1216; --panel: #161a20; --panel-2: #1c2129; --border: #2a303a;
     --text: #e6e9ee; --muted: #8b95a5; --accent: #2dd4bf; --accent-soft: #12302d;
-    --own: #fb923c; --own-soft: #3a2314; --parent: #a78bfa; --parent-soft: #2a2140;
-    --system: #60a5fa; --system-soft: #172a45; --warn: #fbbf24; --warn-soft: #3a2c0f;
+    --own: #f0b13a; --own-soft: #3a2a10; --parent: #e09ac4; --parent-soft: #3a2131;
+    --system: #56b4e9; --system-soft: #10293a; --warn: #fbbf24; --warn-soft: #3a2c0f;
     --shadow: none;
   }
 }
@@ -68,8 +69,8 @@ input[type=search]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px va
 .item:hover { background: var(--panel-2); }
 .item.sel { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.dot.user { background: var(--parent); } .dot.system { background: var(--system); }
+.ico { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; }
+.ico.user { color: var(--parent); } .ico.system { color: var(--system); } .ico.own { color: var(--own); }
 .item .hidden-tag { font-size: 11px; color: var(--muted); }
 main { overflow: auto; padding: 24px 28px 48px; min-width: 0; }
 .empty { color: var(--muted); display: grid; place-items: center; height: 70%; text-align: center; }
@@ -92,9 +93,10 @@ section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; 
 .node.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .node .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .node .m { font-size: 12px; color: var(--muted); display: flex; gap: 6px; align-items: center; margin-top: 3px; }
+.node .n { display: flex; gap: 6px; align-items: center; }
 .node.self { border-top: 3px solid var(--own); }
-.node.user { border-top: 3px solid var(--parent); }
-.node.system { border-top: 3px solid var(--system); }
+.node.user { border-top: 3px dashed var(--parent); }
+.node.system { border-top: 3px dotted var(--system); }
 .arrow { display: grid; place-items: center; color: var(--muted); padding: 0 8px; font-size: 18px; }
 .warn { margin-top: 10px; background: var(--warn-soft); color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 13px; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -121,7 +123,8 @@ td.from { color: var(--muted); font-size: 13px; }
 .badge.own { background: var(--own-soft); color: var(--own); }
 .badge.parent { background: var(--parent-soft); color: var(--parent); }
 .badge.system { background: var(--system-soft); color: var(--system); }
-.diff { color: var(--own); font-weight: 700; margin-left: 4px; }
+.diff { display: inline-flex; align-items: center; gap: 3px; color: var(--text); font-size: 12px; font-weight: 600; margin-left: 8px; }
+.diff .ico { stroke-width: 2.4; }
 tr.hist td { background: var(--panel-2); padding: 0 14px 10px; border-bottom: 1px solid var(--border); }
 .hist-list { display: grid; gap: 4px; padding: 8px 0 0 12px; border-left: 2px solid var(--border); margin-left: 4px; }
 .hist-list div { font-size: 13px; display: flex; gap: 12px; }
@@ -137,6 +140,13 @@ tr.hist td { background: var(--panel-2); padding: 0 14px 10px; border-bottom: 1p
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-own" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-parent" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-system" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></symbol>
+  <symbol id="i-diff" viewBox="0 0 24 24"><path d="M5 9h14"/><path d="M5 15h14"/><path d="M16 4 8 20"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 21h20Z"/><path d="M12 10v5"/><path d="M12 18h.01"/></symbol>
+</svg>
 <header>
   <div class="logo">O</div>
   <h1>OrcaSlicer Profiles</h1>
@@ -173,6 +183,9 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const fmt = (v) => typeof v === "string" ? v : JSON.stringify(v);
 const LABEL = { own: "Own", parent: "Parent", system: "System" };
+const ICON = { own: "own", parent: "parent", system: "system", user: "parent" };
+const icon = (name, cls = "") => `<svg class="ico ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const DIFF = `<span class="diff" title="Differs from the inherited value">${icon("diff")}changed</span>`;
 const TYPE_LABEL = { filament: "Filament", process: "Process", machine: "Printer" };
 
 async function api(path) {
@@ -200,7 +213,7 @@ function renderList() {
   const keys = Object.keys(groups).sort((a, b) => (a.includes("User") ? 0 : 1) - (b.includes("User") ? 0 : 1) || a.localeCompare(b));
   $("list").innerHTML = keys.map((g) => `<div class="group">${esc(g)} · ${groups[g].length}</div>` +
     groups[g].map((p) => `<div class="item${S.sel && S.sel.path === p.path ? " sel" : ""}" data-path="${esc(p.path)}">
-      <span class="dot ${p.origin}"></span><span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
+      ${icon(ICON[p.origin], p.origin)}<span class="name" title="${esc(p.name)}">${esc(p.name)}</span>
       ${p.instantiable ? "" : '<span class="hidden-tag">base</span>'}</div>`).join("")).join("")
     || '<div class="group">No profiles match</div>';
 }
@@ -236,16 +249,16 @@ function renderMain() {
     <section><h3>Inherits chain</h3>
       <div class="chain">${d.chain.map((n, i) => `${i ? '<div class="arrow">→</div>' : ""}
         <div class="node ${nodeClass(n, i)}${S.focus === n.name ? " active" : ""}" data-name="${esc(n.name)}" title="Click to show only settings taken from this profile">
-          <div class="n" title="${esc(n.name)}">${esc(n.name)}</div>
+          <div class="n" title="${esc(n.name)}">${i === 0 ? icon("own", "own") : icon(ICON[n.origin], n.origin)}<span style="overflow:hidden;text-overflow:ellipsis">${esc(n.name)}</span></div>
           <div class="m">${i === 0 ? "this profile" : n.origin === "user" ? "user parent" : "system · " + esc(n.vendor || "")} · ${n.own_settings} settings</div>
         </div>`).join("")}</div>
-      ${d.warnings.map((w) => `<div class="warn">⚠ ${esc(w)}</div>`).join("")}
+      ${d.warnings.map((w) => `<div class="warn">${icon("warn")} ${esc(w)}</div>`).join("")}
     </section>
     <section><h3>Settings</h3>
       <div class="stats">
         <button class="stat${!S.sources.size ? " on" : ""}" data-src=""><div class="v">${all.length}</div><div class="l">Total effective</div></button>
         ${["own", "parent", "system"].map((k) => `<button class="stat${S.sources.has(k) ? " on" : ""}" data-src="${k}">
-          <div class="v">${counts[k]}</div><div class="l"><span class="badge ${k}">${LABEL[k]}</span></div></button>`).join("")}
+          <div class="v">${counts[k]}</div><div class="l"><span class="badge ${k}">${icon(k)}${LABEL[k]}</span></div></button>`).join("")}
       </div>
     </section>
     <section>
@@ -258,13 +271,13 @@ function renderMain() {
       ${rows.map(([k, s]) => `<tr class="row" data-key="${esc(k)}">
           <td class="key">${s.overrides.length ? (S.open.has(k) ? "▾ " : "▸ ") : "&nbsp;&nbsp;"}${esc(k)}</td>
           <td class="val">${esc(fmt(s.value))}</td>
-          <td><span class="badge ${s.source}">${LABEL[s.source]}</span>${s.differs ? '<span class="diff" title="Differs from the inherited value">●</span>' : ""}</td>
+          <td><span class="badge ${s.source}">${icon(s.source)}${LABEL[s.source]}</span>${s.differs ? DIFF : ""}</td>
           <td class="from">${s.source === "own" ? "—" : esc(s.from)}</td></tr>
         ${S.open.has(k) && s.overrides.length ? `<tr class="hist"><td colspan="4"><div class="hist-list">
           ${s.overrides.map((o) => `<div><span>overrides</span><code>${esc(fmt(o.value))}</code><span>from ${esc(o.from)}</span></div>`).join("")}
           </div></td></tr>` : ""}`).join("")}
       </tbody></table>
-      <div class="legend"><span><span class="diff">●</span> value differs from what it would inherit</span><span>▸ click a row to see the values it overrides</span></div>
+      <div class="legend"><span>${icon("own", "own")} Own: set in this profile</span><span>${icon("parent", "user")} Parent: from your own parent profile</span><span>${icon("system", "system")} System: from a vendor profile</span><span>${DIFF.replace('margin-left: 8px', '')} value differs from what it would inherit</span><span>▸ click a row to see the values it overrides</span></div>
     </section>`;
 
   const keyInput = $("key");
