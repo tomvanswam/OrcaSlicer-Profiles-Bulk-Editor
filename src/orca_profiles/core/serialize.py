@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from orca_profiles.core.editor import ProfileEdit
 from orca_profiles.core.model import Profile
 from orca_profiles.core.resolver import ResolvedProfile, ResolvedSetting
 
@@ -37,4 +38,22 @@ def resolved_to_json(
             }
             for s in chosen
         },
+    }
+
+
+def edit_to_json(e: ProfileEdit) -> dict[str, Any]:
+    return {
+        "profile": profile_ref(e.profile),
+        "warnings": e.warnings,
+        "changes": [
+            {
+                "key": c.key,
+                "old": c.old,
+                "new": c.new,
+                "inherit": c.is_inherit,
+                "inherited": c.inherited,
+                "inherited_from": c.inherited_from,
+            }
+            for c in e.changes
+        ],
     }
