@@ -11,6 +11,7 @@ from orca_profiles.commands.base import Command, add_type_option, pick_profile
 from orca_profiles.core.model import Profile
 from orca_profiles.core.repository import ProfileRepository
 from orca_profiles.core.resolver import ResolvedProfile, ResolvedSetting, SourceKind, resolve
+from orca_profiles.core.serialize import resolved_to_json
 
 
 def _fmt(value: Any, width: int = 40) -> str:
@@ -48,7 +49,7 @@ class ChainCommand(Command):
         resolved = resolve(pick_profile(repo, args.profile, args.type), repo)
         settings = [s for s in resolved.settings.values() if self._keep(s, args)]
         if args.format == "json":
-            json.dump(self._to_json(resolved, settings), out, indent=2, ensure_ascii=False)
+            json.dump(resolved_to_json(resolved, settings), out, indent=2, ensure_ascii=False)
             out.write("\n")
         else:
             self._render_text(resolved, settings, args.history, out)
@@ -92,23 +93,3 @@ class ChainCommand(Command):
                 for p, v in s.shadowed:
                     out.write(f"{'':<{kw}}  {'':<6}  ↳ {_fmt(v):<38}  {p.name}\n")
         out.write("\n* = differs from the inherited value\n")
-
-    @staticmethod
-    def _to_json(r: ResolvedProfile, settings: list[ResolvedSetting]) -> dict[str, Any]:
-        def ref(p: Profile) -> dict[str, Any]:
-            return {"name": p.name, "origin": p.origin, "vendor": p.vendor, "path": str(p.path)}
-
-        return {
-            "profile": ref(r.profile) | {"type": r.profile.type},
-            "chain": [ref(p) for p in r.chain],
-            "warnings": r.warnings,
-            "settings": {
-                s.key: {
-                    "value": s.value,
-                    "source": s.kind,
-                    "from": s.source.name,
-                    "overrides": [{"from": p.name, "value": v} for p, v in s.shadowed],
-                }
-                for s in settings
-            },
-        }
