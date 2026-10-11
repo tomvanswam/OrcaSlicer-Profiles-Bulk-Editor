@@ -88,6 +88,12 @@ class ProfileRepository:
         """Build a repository from an OrcaSlicer data dir (``%APPDATA%/OrcaSlicer``),
         which contains ``system/`` and ``user/`` subdirectories."""
         repo = cls()
+        # A portable install keeps its data in a subfolder of the install dir.
+        if not (orca_dir / "system").is_dir():
+            for sub in ("datadir", "data_dir"):
+                if (orca_dir / sub / "system").is_dir():
+                    orca_dir = orca_dir / sub
+                    break
         if (orca_dir / "system").is_dir():
             repo.load_tree(orca_dir / "system", Origin.SYSTEM)
         if (orca_dir / "user").is_dir():
