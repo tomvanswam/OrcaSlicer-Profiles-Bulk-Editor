@@ -4,6 +4,7 @@ Endpoints
     GET /                       the UI
     GET /api/profiles           all profiles (summary)
     GET /api/chain?name=&type=  resolved chain for one profile
+    POST /api/edit              preview (``apply: false``) or write setting changes
 
 New features (matrix, bulk edit) add their endpoints to ``ROUTES``.
 """
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,10 +21,11 @@ from importlib.resources import files
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from orca_profiles.core.editor import EditError, apply, plan
 from orca_profiles.core.model import ProfileType
 from orca_profiles.core.repository import ProfileRepository
 from orca_profiles.core.resolver import resolve
-from orca_profiles.core.serialize import profile_ref, resolved_to_json
+from orca_profiles.core.serialize import edit_to_json, profile_ref, resolved_to_json
 
 log = logging.getLogger(__name__)
 
@@ -60,13 +63,39 @@ def api_chain(repo: ProfileRepository, q: Query) -> Any:
     return resolved_to_json(resolve(profile, repo))
 
 
+def api_edit(repo: ProfileRepository, body: Any) -> Any:
+    """Body: ``{"edits": [{"path": str, "set": {key: value}, "inherit": [key]}],
+    "apply": bool}``. String values are parsed like the CLI does (``220`` becomes
+    ``["220"]`` for list settings)."""
+    if not isinstance(body, dict) or not isinstance(body.get("edits"), list):
+        raise ApiError(HTTPStatus.BAD_REQUEST, "expected {'edits': [...]}")
+    edits = []
+    try:
+        for item in body["edits"]:
+            profile = repo.find_by_path(item.get("path", ""))
+            if profile is None:
+                raise ApiError(HTTPStatus.NOT_FOUND, f"no profile at {item.get('path')!r}")
+            edits.append(plan(profile, repo, item.get("set") or {}, item.get("inherit") or []))
+    except EditError as exc:
+        raise ApiError(HTTPStatus.BAD_REQUEST, str(exc)) from None
+    result: dict[str, Any] = {"edits": [edit_to_json(e) for e in edits], "applied": False}
+    if body.get("apply"):
+        written = apply([e for e in edits if e.changes], repo)
+        result |= {"applied": True, "backups": [str(b) for _, b in written]}
+    return result
+
+
 ROUTES: dict[str, Callable[[ProfileRepository, Query], Any]] = {
     "/api/profiles": api_profiles,
     "/api/chain": api_chain,
 }
+POST_ROUTES: dict[str, Callable[[ProfileRepository, Any], Any]] = {
+    "/api/edit": api_edit,
+}
 
 
 def make_handler(repo: ProfileRepository) -> type[BaseHTTPRequestHandler]:
+    lock = threading.Lock()
     index = files("orca_profiles.gui").joinpath("static/index.html").read_bytes()
 
     class Handler(BaseHTTPRequestHandler):
@@ -81,6 +110,27 @@ def make_handler(repo: ProfileRepository) -> type[BaseHTTPRequestHandler]:
                 return
             try:
                 self._json(HTTPStatus.OK, route(repo, parse_qs(url.query)))
+            except ApiError as exc:
+                self._json(exc.status, {"error": str(exc)})
+
+        def do_POST(self) -> None:
+            route = POST_ROUTES.get(urlparse(self.path).path)
+            if route is None:
+                self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
+                return
+            # Only accept JSON from our own page (blocks cross-site form posts).
+            if not (self.headers.get("Content-Type") or "").startswith("application/json"):
+                self._json(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, {"error": "expected JSON"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(length) or b"null")
+            except (ValueError, json.JSONDecodeError):
+                self._json(HTTPStatus.BAD_REQUEST, {"error": "invalid JSON body"})
+                return
+            try:
+                with lock:
+                    self._json(HTTPStatus.OK, route(repo, body))
             except ApiError as exc:
                 self._json(exc.status, {"error": str(exc)})
 

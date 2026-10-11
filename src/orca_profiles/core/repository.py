@@ -61,6 +61,15 @@ class ProfileRepository:
         self._profiles.append(profile)
         self._by_key[(profile.type, profile.name)].append(profile)
 
+    def replace(self, old: Profile, new: Profile) -> None:
+        """Swap a profile for a re-loaded version of the same file."""
+        self._profiles[next(i for i, p in enumerate(self._profiles) if p is old)] = new
+        bucket = self._by_key[(old.type, old.name)]
+        bucket[next(i for i, p in enumerate(bucket) if p is old)] = new
+
+    def find_by_path(self, path: str | Path) -> Profile | None:
+        return next((p for p in self._profiles if str(p.path) == str(path)), None)
+
     def load_tree(self, root: Path, origin: Origin) -> None:
         """Load every preset below ``root``.
 

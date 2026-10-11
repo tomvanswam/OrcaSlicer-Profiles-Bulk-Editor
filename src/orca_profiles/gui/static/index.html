@@ -131,6 +131,38 @@ tr.hist td { background: var(--panel-2); padding: 0 14px 10px; border-bottom: 1p
 .hist-list code { font-family: var(--mono); }
 .hist-list span { color: var(--muted); }
 .legend { display: flex; gap: 16px; color: var(--muted); font-size: 12px; margin-top: 10px; flex-wrap: wrap; }
+.act { display: flex; gap: 4px; justify-content: flex-end; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--panel);
+  color: var(--text); font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 7px; cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.icon { padding: 4px 6px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 600; }
+.editor { display: grid; gap: 10px; padding: 12px 0 4px; }
+.editor .row2 { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.editor select, .editor input[type=text] {
+  padding: 6px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel);
+  color: var(--text); font: inherit;
+}
+.editor input[type=text] { font-family: var(--mono); font-size: 13px; flex: 1; min-width: 220px; }
+.editor .hint { color: var(--muted); font-size: 12px; }
+.pending-mark { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--accent); margin-left: 8px; }
+.bar {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5;
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / .18);
+  padding: 10px 12px 10px 16px; display: flex; gap: 12px; align-items: center;
+}
+.modal-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .45); display: grid; place-items: center; z-index: 10; padding: 16px; }
+.modal { background: var(--panel); border-radius: 14px; max-width: 860px; width: 100%; max-height: 85vh; overflow: auto; padding: 20px 22px; border: 1px solid var(--border); }
+.modal h2 { margin: 0 0 4px; font-size: 18px; }
+.file { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-top: 12px; }
+.file .fn { font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.chg { font-family: var(--mono); font-size: 13px; display: grid; grid-template-columns: 22px minmax(140px, auto) 1fr; gap: 4px 8px; margin-top: 8px; align-items: start; }
+.chg del { color: var(--muted); }
+.chg ins { text-decoration: none; font-weight: 600; }
+.ok { margin-top: 10px; background: var(--accent-soft); color: var(--accent); padding: 8px 12px; border-radius: 8px; font-size: 13px; }
 @media (max-width: 820px) {
   .layout { grid-template-columns: 1fr; }
   aside { max-height: 45vh; border-right: 0; border-bottom: 1px solid var(--border); }
@@ -146,6 +178,10 @@ tr.hist td { background: var(--panel-2); padding: 0 14px 10px; border-bottom: 1p
   <symbol id="i-system" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></symbol>
   <symbol id="i-diff" viewBox="0 0 24 24"><path d="M5 9h14"/><path d="M5 15h14"/><path d="M16 4 8 20"/></symbol>
   <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 21h20Z"/><path d="M12 10v5"/><path d="M12 18h.01"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13 7 4 4"/></symbol>
+  <symbol id="i-inherit" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5Z"/><path d="M8 3v5h7V3"/><path d="M8 21v-7h8v7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
 </svg>
 <header>
   <div class="logo">O</div>
@@ -178,7 +214,8 @@ tr.hist td { background: var(--panel-2); padding: 0 14px 10px; border-bottom: 1p
 <script>
 "use strict";
 const S = { profiles: [], type: "", origin: "", q: "", hidden: false, sel: null,
-            data: null, sources: new Set(), key: "", onlyDiff: false, focus: null, open: new Set() };
+            data: null, sources: new Set(), key: "", onlyDiff: false, focus: null, open: new Set(),
+            editing: null, pending: new Map() };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const fmt = (v) => typeof v === "string" ? v : JSON.stringify(v);
@@ -188,8 +225,8 @@ const icon = (name, cls = "") => `<svg class="ico ${cls}" aria-hidden="true"><us
 const DIFF = `<span class="diff" title="Differs from the inherited value">${icon("diff")}changed</span>`;
 const TYPE_LABEL = { filament: "Filament", process: "Process", machine: "Printer" };
 
-async function api(path) {
-  const r = await fetch(path);
+async function api(path, payload) {
+  const r = await fetch(path, payload === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   const body = await r.json();
   if (!r.ok) throw new Error(body.error || r.statusText);
   return body;
@@ -219,7 +256,7 @@ function renderList() {
 }
 
 async function select(p) {
-  S.sel = p; S.focus = null; S.open.clear();
+  S.sel = p; S.focus = null; S.open.clear(); S.editing = null;
   location.hash = encodeURIComponent(`${p.type}/${p.name}`);
   renderList();
   try {
@@ -267,25 +304,124 @@ function renderMain() {
         <label class="toggle"><input type="checkbox" id="diff"${S.onlyDiff ? " checked" : ""}> Only values that differ from parent</label>
         <span class="shown">${rows.length} of ${all.length} shown${S.focus ? ` · from <b>${esc(S.focus)}</b>` : ""}</span>
       </div>
-      <table><thead><tr><th>Setting</th><th>Value</th><th>Source</th><th>Defined in</th></tr></thead><tbody>
+      <table><thead><tr><th>Setting</th><th>Value</th><th>Source</th><th>Defined in</th><th></th></tr></thead><tbody>
       ${rows.map(([k, s]) => `<tr class="row" data-key="${esc(k)}">
           <td class="key">${s.overrides.length ? (S.open.has(k) ? "▾ " : "▸ ") : "&nbsp;&nbsp;"}${esc(k)}</td>
           <td class="val">${esc(fmt(s.value))}</td>
           <td><span class="badge ${s.source}">${icon(s.source)}${LABEL[s.source]}</span>${s.differs ? DIFF : ""}</td>
-          <td class="from">${s.source === "own" ? "—" : esc(s.from)}</td></tr>
-        ${S.open.has(k) && s.overrides.length ? `<tr class="hist"><td colspan="4"><div class="hist-list">
+          <td class="from">${s.source === "own" ? "—" : esc(s.from)}${pendingFor(k) ? `<span class="pending-mark" title="Unsaved change">${icon("edit")}${pendingFor(k)} pending</span>` : ""}</td>
+          <td><div class="act">
+            <button class="btn icon" data-act="edit" title="Change this setting (at any level of the chain)">${icon("edit")}</button>
+            <button class="btn icon" data-act="inherit" title="Inherit: remove the override from this profile"${s.source === "own" && s.overrides.length ? "" : " disabled"}>${icon("inherit")}</button>
+          </div></td></tr>
+        ${S.editing === k ? editorRow(k, s) : ""}
+        ${S.open.has(k) && s.overrides.length ? `<tr class="hist"><td colspan="5"><div class="hist-list">
           ${s.overrides.map((o) => `<div><span>overrides</span><code>${esc(fmt(o.value))}</code><span>from ${esc(o.from)}</span></div>`).join("")}
           </div></td></tr>` : ""}`).join("")}
       </tbody></table>
-      <div class="legend"><span>${icon("own", "own")} Own: set in this profile</span><span>${icon("parent", "user")} Parent: from your own parent profile</span><span>${icon("system", "system")} System: from a vendor profile</span><span>${DIFF.replace('margin-left: 8px', '')} value differs from what it would inherit</span><span>▸ click a row to see the values it overrides</span></div>
-    </section>`;
+      <div class="legend"><span>${icon("own", "own")} Own: set in this profile</span><span>${icon("parent", "user")} Parent: from your own parent profile</span><span>${icon("system", "system")} System: from a vendor profile</span><span>${DIFF.replace('margin-left: 8px', '')} value differs from what it would inherit</span><span>▸ click a row to see the values it overrides</span><span>${icon("edit")} change a value at any level</span><span>${icon("inherit")} inherit: drop the override</span></div>
+    </section>${pendingBar()}`;
 
   const keyInput = $("key");
   keyInput.addEventListener("input", (e) => { S.key = e.target.value; renderMain(); const k = $("key"); k.focus(); k.setSelectionRange(k.value.length, k.value.length); });
   $("diff").addEventListener("change", (e) => { S.onlyDiff = e.target.checked; renderMain(); });
 }
 
+
+// ---- editing -------------------------------------------------------------------------
+// Every chain profile that defines key ``k`` itself, nearest first.
+const definers = (s) => [s.from, ...s.overrides.map((o) => o.from)];
+function valueAt(s, name) {
+  if (s.from === name) return s.value;
+  const o = s.overrides.find((x) => x.from === name); return o ? o.value : undefined;
+}
+function pendingFor(k) {
+  let n = 0; for (const e of S.pending.values()) if (k in e.set || e.inherit.has(k)) n++; return n;
+}
+function queue(path, name, key, value) {
+  const e = S.pending.get(path) ?? { name, set: {}, inherit: new Set() };
+  delete e.set[key]; e.inherit.delete(key);
+  if (value === undefined) e.inherit.add(key); else e.set[key] = value;
+  S.pending.set(path, e);
+}
+function editorRow(k, s) {
+  const defs = new Set(definers(s));
+  const opts = S.data.chain.map((n, i) => `<option value="${i}">${i === 0 ? "This profile" : n.origin === "user" ? "User parent" : "System"} · ${esc(n.name)}${defs.has(n.name) ? " (defines it)" : ""}</option>`).join("");
+  return `<tr class="hist"><td colspan="5"><div class="editor" data-key="${esc(k)}">
+    <div class="row2"><label class="hint" for="lvl">Change in</label><select id="lvl">${opts}</select></div>
+    <div class="row2"><input type="text" id="val" value="${esc(fmt(s.value))}" spellcheck="false">
+      <button class="btn primary" data-act="queue-set">${icon("edit")}Set value</button>
+      <button class="btn" data-act="queue-inherit" id="inh">${icon("inherit")}Inherit at this level</button>
+      <button class="btn" data-act="cancel">${icon("x")}Cancel</button></div>
+    <div class="hint" id="lvlhint"></div>
+  </div></td></tr>`;
+}
+function syncEditor() {
+  const ed = document.querySelector(".editor"); if (!ed) return;
+  const s = S.data.settings[ed.dataset.key], n = S.data.chain[+$("lvl").value];
+  const own = valueAt(s, n.name);
+  $("inh").disabled = own === undefined || n.name === definers(s).at(-1);
+  $("lvlhint").innerHTML = (own === undefined ? `Not set in ${esc(n.name)} yet; setting it adds an override there.` : `Currently ${esc(fmt(own))} in ${esc(n.name)}.`) +
+    (n.origin === "system" ? ` ${icon("warn")} System profiles are overwritten when OrcaSlicer updates its profiles.` : "") +
+    " Plain values are stored like the existing one (e.g. 220 becomes [\"220\"] for list settings).";
+}
+function pendingBar() {
+  let n = 0; for (const e of S.pending.values()) n += Object.keys(e.set).length + e.inherit.size;
+  return n ? `<div class="bar"><b>${n} unsaved change${n > 1 ? "s" : ""}</b> in ${S.pending.size} profile${S.pending.size > 1 ? "s" : ""}
+    <button class="btn" data-act="discard">${icon("x")}Discard</button>
+    <button class="btn primary" data-act="review">${icon("save")}Review &amp; save</button></div>` : "";
+}
+const editsBody = (apply) => ({ apply, edits: [...S.pending].map(([path, e]) => ({ path, set: e.set, inherit: [...e.inherit] })) });
+async function review() {
+  let res; try { res = await api("/api/edit", editsBody(false)); } catch (err) { return alert(err.message); }
+  const files = res.edits.filter((e) => e.changes.length || e.warnings.length);
+  const bg = document.createElement("div"); bg.className = "modal-bg";
+  bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><h2>Review changes</h2>
+    <div class="hint" style="color:var(--muted)">Each file is backed up before it is written.</div>
+    ${files.map((e) => `<div class="file"><div class="fn">${icon(ICON[e.profile.origin], e.profile.origin)}${esc(e.profile.name)} <span class="pill">${e.profile.origin}</span></div>
+      <div class="path">${esc(e.profile.path)}</div>
+      ${e.warnings.map((w) => `<div class="warn">${icon("warn")} ${esc(w)}</div>`).join("")}
+      <div class="chg">${e.changes.map((c) => c.inherit
+        ? `<span title="inherit">${icon("inherit")}</span><span>${esc(c.key)}</span><span><del>${esc(fmt(c.old))}</del> → inherit${c.inherited_from ? ` <ins>${esc(fmt(c.inherited))}</ins> from ${esc(c.inherited_from)}` : " (no parent value)"}</span>`
+        : `<span title="set">${icon("edit")}</span><span>${esc(c.key)}</span><span><del>${c.old === null ? "inherited" : esc(fmt(c.old))}</del> → <ins>${esc(fmt(c.new))}</ins></span>`).join("") || '<span></span><span class="hint">no changes</span>'}</div></div>`).join("")}
+    <div class="row2" style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn" data-m="close">Back</button>
+      <button class="btn primary" data-m="save">${icon("save")}Save ${files.filter((e) => e.changes.length).length} file(s)</button></div>
+    <div id="mres"></div></div>`;
+  document.body.append(bg);
+  bg.addEventListener("click", async (e) => {
+    const b = e.target.closest("button");
+    if (e.target === bg || b?.dataset.m === "close") return bg.remove();
+    if (b?.dataset.m !== "save") return;
+    b.disabled = true;
+    try {
+      const r = await api("/api/edit", editsBody(true));
+      S.pending.clear();
+      bg.querySelector("#mres").innerHTML = `<div class="ok">Saved. Backups:<br>${r.backups.map(esc).join("<br>")}</div>`;
+      bg.querySelector('[data-m="close"]').textContent = "Close";
+      S.profiles = (await api("/api/profiles")).profiles;
+      const cur = S.profiles.find((x) => x.path === S.sel.path); if (cur) await select(cur);
+    } catch (err) { bg.querySelector("#mres").innerHTML = `<div class="warn">${esc(err.message)}</div>`; b.disabled = false; }
+  });
+}
+$("main").addEventListener("change", (e) => { if (e.target.id === "lvl") syncEditor(); });
 $("main").addEventListener("click", (e) => {
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act) {
+    const k = e.target.closest("tr")?.dataset.key ?? e.target.closest(".editor")?.dataset.key, s = k && S.data.settings[k];
+    if (act === "edit") { S.editing = S.editing === k ? null : k; renderMain(); syncEditor(); $("val")?.focus(); }
+    else if (act === "inherit") { queue(S.data.profile.path, S.data.profile.name, k); renderMain(); }
+    else if (act === "cancel") { S.editing = null; renderMain(); }
+    else if (act === "queue-set" || act === "queue-inherit") {
+      const n = S.data.chain[+$("lvl").value];
+      queue(n.path, n.name, k, act === "queue-set" ? $("val").value : undefined);
+      S.editing = null; renderMain();
+    }
+    else if (act === "discard") { S.pending.clear(); renderMain(); }
+    else if (act === "review") review();
+    return;
+  }
+  if (e.target.closest(".editor")) return;
   const stat = e.target.closest(".stat");
   if (stat) { const v = stat.dataset.src; if (!v) S.sources.clear(); else S.sources.has(v) ? S.sources.delete(v) : S.sources.add(v); renderMain(); return; }
   const node = e.target.closest(".node");
