@@ -1,0 +1,1 @@
+{"name":"My PLA base","inherits":"Acme PLA","from":"User","fan_max_speed":["80"],"nozzle_temperature":["210"]}
